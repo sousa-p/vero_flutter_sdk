@@ -191,31 +191,36 @@ class VeroFlutterPlugin : FlutterPlugin, MethodChannel.MethodCallHandler, Activi
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
-        if (requestCode == PAYMENT_REQUEST) {
-            if (resultCode == Activity.RESULT_OK) {
-                if (data?.hasExtra(AUTHORIZATION) == true && data.getStringExtra(AUTHORIZATION)!!
-                        .isNotEmpty()
-                ) {
-                    val extras = data.extras
-                    if (!resultSent && activity != null) {
-                        this.result?.success(extras?.toMap(activity!!))
-                        resultSent = true
-                    }
-                } else if (data?.hasExtra(ERROR) == true) {
-                    if (!resultSent) {
-                        result?.error(
-                            activity?.getString(R.string.transaction_rejected) ?: "",
-                            data.getStringExtra(ERROR),
-                            null
-                        )
-                        resultSent = true
-                    }
-                }
-                return true
-            }
+        if (requestCode != PAYMENT_REQUEST) return false
+        
+        if (resultCode != Activity.RESULT_OK) {
+            result?.error("payment_cancelled", "O pagamento foi cancelado", null)
+            return true
+        }
+        
+        if (activity == null) return false
+        
+        if (data == null) {
+            result?.error("intent_null", "Dados da intent estão nulos", null)
             return false
         }
-        return false
-    }
+    
+        val dataHasAuthorization = data.hasExtra(AUTHORIZATION)
+        val isDataAuthorizationNotEmpty = data.getStringExtra(AUTHORIZATION)?.isNotEmpty() == true
+    
+        if (dataHasAuthorization && isDataAuthorizationNotEmpty) {
+            this.result?.success(data.extras?.toMap(activity!!))
+            return true;
+        }
 
+        if (data.hasExtra(ERROR)) {
+            val transactionMessage = activity?.getString(R.string.transaction_rejected) ?: "Erro desconhecido"
+            val extraMessage = data.getStringExtra(ERROR)
+            result?.error(transactionMessage, extraMessage, null)
+            return false;
+        }
+        
+        result?.success(null)
+        return true
+    }
 }
